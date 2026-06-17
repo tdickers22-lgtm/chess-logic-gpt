@@ -1,0 +1,17 @@
+{
+  "id": "tdickers22-lgtm/chess-logic-gpt-train",
+  "title": "chess-logic-gpt-train",
+  "code_file": "train_kernel.py",
+  "language": "python",
+  "kernel_type": "script",
+  "is_private": true,
+  "enable_gpu": true,
+  "enable_tpu": false,
+  "enable_internet": true,
+  "dataset_sources": [
+    "tdickers22-lgtm/chess-logic-gpt-src",
+    "tdickers22-lgtm/chess-logic-gpt-data"
+  ],
+  "competition_sources": [],
+  "kernel_sources": []
+}

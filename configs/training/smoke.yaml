@@ -25,6 +25,7 @@ lora:
 training:
   output_dir: data/outputs/smoke
   num_train_epochs: 1
+  max_steps: 20            # smoke only: prove the SFT path end-to-end in minutes, not a full epoch
   per_device_train_batch_size: 1
   per_device_eval_batch_size: 1
   gradient_accumulation_steps: 4

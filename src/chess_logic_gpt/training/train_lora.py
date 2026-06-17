@@ -101,6 +101,7 @@ def main() -> None:
     args_out = TrainingArguments(
         output_dir=train_cfg["output_dir"],
         num_train_epochs=float(train_cfg.get("num_train_epochs", 1)),
+        max_steps=int(train_cfg.get("max_steps", -1)),
         per_device_train_batch_size=int(train_cfg.get("per_device_train_batch_size", 1)),
         per_device_eval_batch_size=int(train_cfg.get("per_device_eval_batch_size", 1)),
         gradient_accumulation_steps=int(train_cfg.get("gradient_accumulation_steps", 16)),

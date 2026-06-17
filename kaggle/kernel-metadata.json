@@ -9,7 +9,6 @@
   "enable_tpu": false,
   "enable_internet": true,
   "dataset_sources": [
-    "tdickers22-lgtm/chess-logic-gpt-src",
     "tdickers22-lgtm/chess-logic-gpt-data"
   ],
   "competition_sources": [],

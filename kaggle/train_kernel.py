@@ -65,7 +65,8 @@ os.chdir(REPO)
 # bumped. bitsandbytes goes in with --no-deps so it can't drag torch back up.
 # trl is GRPO-only and intentionally omitted from the SFT kernel.
 sh([sys.executable, "-m", "pip", "install", "-q", "--upgrade-strategy", "only-if-needed",
-    "torch==2.6.0", "transformers>=4.51", "peft>=0.12", "accelerate>=0.33",
+    "torch==2.6.0", "torchvision==0.21.0", "torchaudio==2.6.0",
+    "transformers>=4.51", "peft>=0.12", "accelerate>=0.33",
     "datasets>=2.20", "trackio", "python-chess", "orjson", "pyyaml", "zstandard"])
 sh([sys.executable, "-m", "pip", "install", "-q", "--no-deps", "bitsandbytes"])
 sh([sys.executable, "-m", "pip", "install", "-q", "--no-deps", "-e", "."])

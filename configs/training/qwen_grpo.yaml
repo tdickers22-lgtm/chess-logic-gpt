@@ -1,0 +1,43 @@
+model:
+  # Point this at the SFT checkpoint (local dir or HF hub id) so GRPO sharpens a
+  # model that already speaks the <reasoning>/<answer> format.
+  base_model: data/outputs/qwen-chess-logic-lora
+  trust_remote_code: true
+  push_to_hub: false
+  hub_model_id: null
+
+data:
+  # Only verifiable records are used (chess tactics, formal-logic proofs, memory);
+  # applied/ethics rows are filtered out automatically.
+  train_file: data/processed/train_mix.jsonl
+
+grpo:
+  output_dir: data/outputs/qwen-chess-logic-grpo
+  learning_rate: 1.0e-6
+  per_device_train_batch_size: 8
+  gradient_accumulation_steps: 4
+  num_generations: 8        # samples scored per prompt (must divide global batch)
+  max_prompt_length: 1024
+  max_completion_length: 1024
+  num_train_epochs: 1
+  max_steps: -1
+  beta: 0.04                # KL penalty to the reference model
+  temperature: 1.0
+  logging_steps: 1
+  save_steps: 100
+  save_total_limit: 3
+  bf16: true
+  gradient_checkpointing: true
+
+lora:
+  r: 32
+  alpha: 64
+  dropout: 0.05
+  target_modules:
+    - q_proj
+    - k_proj
+    - v_proj
+    - o_proj
+    - gate_proj
+    - up_proj
+    - down_proj

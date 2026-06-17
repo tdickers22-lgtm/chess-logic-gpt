@@ -1,0 +1,15 @@
+# Azure ML code-upload ignore (mirrors .dockerignore). Data + checkpoints are
+# attached as a data asset at runtime, not uploaded with the code.
+.git
+.venv
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+data/
+outputs/
+*.jsonl
+*.zst
+*.csv
+trackio_logs/
+.DS_Store

@@ -1,0 +1,45 @@
+model:
+  # Sparse-MoE reasoning base (~3B active params): strong reasoning + working
+  # memory at a tractable active-compute cost. Verify availability with
+  # `hf model info Qwen/Qwen3-30B-A3B` (swap to Qwen3-30B-A3B-Instruct-2507 if preferred).
+  base_model: Qwen/Qwen3-30B-A3B
+  trust_remote_code: true
+  load_in_4bit: true
+  push_to_hub: false
+  hub_model_id: null
+
+data:
+  train_file: data/processed/train_mix.jsonl
+  eval_file: data/processed/eval_mix.jsonl
+  text_field: text
+  max_seq_length: 4096
+
+lora:
+  r: 32
+  alpha: 64
+  dropout: 0.05
+  target_modules:
+    - q_proj
+    - k_proj
+    - v_proj
+    - o_proj
+    - gate_proj
+    - up_proj
+    - down_proj
+
+training:
+  output_dir: data/outputs/qwen-chess-logic-lora
+  num_train_epochs: 1
+  per_device_train_batch_size: 1
+  per_device_eval_batch_size: 1
+  gradient_accumulation_steps: 16
+  learning_rate: 0.00008
+  warmup_ratio: 0.03
+  weight_decay: 0.01
+  logging_steps: 10
+  eval_steps: 200
+  save_steps: 200
+  save_total_limit: 3
+  bf16: true
+  gradient_checkpointing: true
+  report_to: none

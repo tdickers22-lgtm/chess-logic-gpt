@@ -1,0 +1,51 @@
+model:
+  # Point at the 8B SFT checkpoint so GRPO sharpens a model that already speaks
+  # the <reasoning>/<answer> format. GRPO is the GPU-heavy phase (8 samples x
+  # ~1k tokens per prompt every step) -- run this on the AWS g6e.xlarge (L40S
+  # 48GB) where vLLM generation + QLoRA training comfortably coexist.
+  base_model: data/outputs/qwen3-8b-chess-logic-lora
+  trust_remote_code: true
+  push_to_hub: false
+  hub_model_id: null
+
+data:
+  # Only verifiable records are used (chess tactics, formal-logic proofs, memory);
+  # applied/ethics rows are filtered out automatically.
+  train_file: data/processed/train_mix.jsonl
+
+grpo:
+  output_dir: data/outputs/qwen3-8b-chess-logic-grpo
+  learning_rate: 1.0e-6
+  per_device_train_batch_size: 8
+  gradient_accumulation_steps: 4
+  num_generations: 8        # samples scored per prompt (must divide global batch)
+  max_prompt_length: 1024
+  max_completion_length: 768
+  num_train_epochs: 1
+  max_steps: -1
+  beta: 0.04                # KL penalty to the reference model
+  temperature: 1.0
+  logging_steps: 1
+  save_steps: 100
+  save_total_limit: 2
+  bf16: true
+  gradient_checkpointing: true
+  resume_from_checkpoint: true
+  # --- vLLM generation: load-bearing at this budget; without it an 8B GRPO step
+  #     crawls. These keys take effect once train_grpo.py wires them (hardening). ---
+  use_vllm: true
+  vllm_mode: colocate
+  vllm_gpu_memory_utilization: 0.35
+
+lora:
+  r: 32
+  alpha: 64
+  dropout: 0.05
+  target_modules:
+    - q_proj
+    - k_proj
+    - v_proj
+    - o_proj
+    - gate_proj
+    - up_proj
+    - down_proj

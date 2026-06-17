@@ -1,0 +1,40 @@
+model:
+  # Tiny model to validate the whole SFT pipeline end-to-end for a few dollars/minutes
+  # before committing GPU hours to the 30B run.
+  base_model: Qwen/Qwen2.5-0.5B-Instruct
+  trust_remote_code: true
+  load_in_4bit: false
+  hub_model_id: null
+
+data:
+  train_file: data/processed/train_mix.jsonl
+  eval_file: data/processed/eval_mix.jsonl
+  text_field: text
+  max_seq_length: 1024
+
+lora:
+  r: 8
+  alpha: 16
+  dropout: 0.05
+  target_modules:
+    - q_proj
+    - k_proj
+    - v_proj
+    - o_proj
+
+training:
+  output_dir: data/outputs/smoke
+  num_train_epochs: 1
+  per_device_train_batch_size: 1
+  per_device_eval_batch_size: 1
+  gradient_accumulation_steps: 4
+  learning_rate: 0.0002
+  warmup_ratio: 0.03
+  weight_decay: 0.01
+  logging_steps: 5
+  eval_steps: 50
+  save_steps: 50
+  save_total_limit: 1
+  bf16: false
+  gradient_checkpointing: true
+  report_to: none

@@ -1,0 +1,48 @@
+model:
+  # First serious run: Qwen3-8B dense, QLoRA. Chosen to fit FREE/student GPUs
+  # (Kaggle 2xT4 16GB, Lightning L4 24GB, Colab T4) via 4-bit, while leaving the
+  # AWS $100 for the heavier GRPO pass. Scale to Qwen3-30B-A3B later by swapping
+  # this file for qwen_lora.yaml -- the rest of the pipeline is model-agnostic.
+  base_model: Qwen/Qwen3-8B
+  trust_remote_code: true
+  load_in_4bit: true        # QLoRA: ~6GB weights, fits a 16GB T4
+  enable_thinking: false    # canonicalize on our <reasoning>/<answer> trace, not Qwen3's native <think>
+  push_to_hub: false
+  hub_model_id: null
+
+data:
+  train_file: data/processed/train_mix.jsonl
+  eval_file: data/processed/eval_mix.jsonl
+  text_field: text
+  max_seq_length: 2048      # most records are short; 2048 keeps activations cheap on free GPUs
+
+lora:
+  r: 32
+  alpha: 64
+  dropout: 0.05
+  target_modules:
+    - q_proj
+    - k_proj
+    - v_proj
+    - o_proj
+    - gate_proj
+    - up_proj
+    - down_proj
+
+training:
+  output_dir: data/outputs/qwen3-8b-chess-logic-lora
+  num_train_epochs: 1
+  per_device_train_batch_size: 1
+  per_device_eval_batch_size: 1
+  gradient_accumulation_steps: 16
+  learning_rate: 0.00008
+  warmup_ratio: 0.03
+  weight_decay: 0.01
+  logging_steps: 10
+  eval_steps: 200
+  save_steps: 200           # frequent checkpoints so interruptible free-tier sessions can resume
+  save_total_limit: 2       # free-tier disk is ~15-20GB; keep it small
+  bf16: true
+  gradient_checkpointing: true
+  resume_from_checkpoint: true   # stitch together short free-tier sessions (wired in hardening pass)
+  report_to: none

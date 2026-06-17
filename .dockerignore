@@ -1,0 +1,16 @@
+# Keep the training image small: data + checkpoints are attached at runtime,
+# not baked into the image.
+.git
+.venv
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+data/
+outputs/
+*.jsonl
+*.zst
+*.csv
+wandb/
+trackio_logs/
+.DS_Store

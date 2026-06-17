@@ -1,0 +1,53 @@
+# Azure ML command job for SFT (chess-logic-gpt).
+# GitHub Education -> Azure credits path. Submit with:
+#
+#   az ml job create -f cloud/azure/job.yml \
+#       --set environment_variables.HF_TOKEN=$HF_TOKEN \
+#       --web
+#
+# Prereqs (one-time):
+#   az extension add -n ml
+#   az ml workspace create -n clg-ws -g <resource-group>
+#   az ml compute create -n gpu-a100 --type AmlCompute \
+#       --size Standard_NC24ads_A100_v4 --min-instances 0 --max-instances 1
+#
+# Data: register data/processed as a data asset, or upload to the workspace
+# datastore and mount it at ./data (see the `inputs` block).
+$schema: https://azuremlschemas.azureedge.net/latest/commandJob.schema.json
+
+display_name: clg-sft
+experiment_name: chess-logic-gpt
+
+# The whole repo is the code context; .amlignore/.gitignore keep data out.
+code: ../..
+
+command: >-
+  bash scripts/cloud_train.sh
+
+environment:
+  # Build the bundled Dockerfile as the job environment.
+  build:
+    path: ../..
+    dockerfile_path: Dockerfile
+
+environment_variables:
+  PHASE: sft
+  SFT_CONFIG: configs/training/qwen_lora.yaml
+  TRACKIO_PROJECT: chess-logic-gpt
+  TRACKIO_RUN: sft-azure
+  # Provide secrets at submit time (do NOT commit real tokens), e.g.:
+  #   --set environment_variables.HF_TOKEN=$HF_TOKEN
+  #   --set environment_variables.TRACKIO_SPACE_ID=<user>/clg-dashboard
+
+# Mount the processed dataset (registered as an Azure ML data asset) at ./data.
+inputs:
+  data:
+    type: uri_folder
+    # Replace with your registered asset, e.g. azureml:clg-data:1
+    path: azureml://datastores/workspaceblobstore/paths/chess-logic-gpt/data
+    mode: ro_mount
+
+compute: azureml:gpu-a100
+
+resources:
+  instance_count: 1

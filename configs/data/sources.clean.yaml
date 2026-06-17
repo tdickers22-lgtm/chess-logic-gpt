@@ -1,0 +1,147 @@
+version: 1
+policy: clean-room-open-or-generated-only
+
+sources:
+  lichess_standard_games:
+    domain: chess
+    url: https://database.lichess.org/
+    license: database-public-export-see-lichess-terms
+    use:
+      - pgn_continuation
+      - opening_middlegame_endgame_position_sampling
+      - human_move_prediction
+    notes:
+      - Monthly PGN Zstandard dumps. Stream; do not fully decompress unless needed.
+      - Prefer high-rated rapid/classical games for serious move-pattern examples.
+      - Keep attribution metadata.
+
+  lichess_puzzles:
+    domain: chess
+    url: https://database.lichess.org/#puzzles
+    license: CC0
+    use:
+      - tactical_motif_supervision
+      - motif_family_generation
+      - puzzle_solution_traces
+    notes:
+      - Use themes and ratings to balance motif families.
+
+  lichess_broadcasts:
+    domain: chess
+    url: https://database.lichess.org/#broadcasts
+    license: CC-BY-SA-4.0
+    use:
+      - master_game_memory
+      - pgn_continuation
+    notes:
+      - Attribute and preserve share-alike obligations in derived releases.
+
+  stockfish:
+    domain: chess
+    url: https://stockfishchess.org/
+    license: GPL-3.0-or-later
+    use:
+      - best_move_labels
+      - principal_variation_labels
+      - tactical_blunder_detection
+    notes:
+      - Do not bundle engine binary unless complying with GPL.
+      - Scripts expect STOCKFISH_PATH.
+
+  syzygy:
+    domain: chess
+    url: https://syzygy-tables.info/
+    license: see-syzygy-terms
+    use:
+      - exact_endgame_wdl_dtz
+      - endgame_truth_labels
+    notes:
+      - Use local tablebases if available via SYZYGY_PATH.
+      - Use public APIs respectfully and cache results if terms allow.
+
+  generated_endgame_positions:
+    domain: chess
+    url: generated
+    license: generated-by-project
+    use:
+      - legal_low_piece_position_generation
+      - exact_syzygy_supervision_after_labeling
+    notes:
+      - Generated candidates are not included in the default mix until converted to Syzygy-labeled records.
+
+  open_logic_forallx:
+    domain: logic
+    url: https://forallx.openlogicproject.org/
+    license: open-logic-project-license-see-source
+    use:
+      - fitch_rule_examples
+      - predicate_logic_curriculum
+      - symbolization_templates
+    notes:
+      - Prefer generated exercises based on the rule set rather than copying large text.
+
+  leandojo_mathlib:
+    domain: math_logic
+    url: https://leandojo.org/
+    license: MIT-code-dataset-licenses-vary-see-source
+    use:
+      - theorem_proving_traces
+      - premise_selection
+      - proof_state_to_tactic_examples
+    notes:
+      - Keep Lean/mathlib attribution and license metadata.
+
+  generated_logic:
+    domain: logic
+    url: generated
+    license: generated-by-project
+    use:
+      - fitch_natural_deduction
+      - proof_repair
+      - predicate_logic_syllogisms
+
+  generated_applied_reasoning:
+    domain: logic
+    url: generated
+    license: generated-by-project
+    use:
+      - philosophy_argument_audits
+      - social_reasoning_tradeoffs
+      - causal_inference_checks
+      - counterexample_generation
+      - hidden_assumption_detection
+    notes:
+      - Synthetic clean-room data.
+      - Intended to make formal logic transfer to messy domains without copying essays or proprietary test items.
+
+  generated_ethics_calibration:
+    domain: logic
+    url: generated
+    license: generated-by-project
+    use:
+      - overrefusal_reduction
+      - precise_boundary_reasoning
+      - ethical_framework_comparison
+      - benign_sensitive_topic_answering
+      - narrow_refusal_with_safe_alternative
+    notes:
+      - Synthetic clean-room data.
+      - Trains direct answers to legitimate controversial or sensitive analysis.
+      - Does not include jailbreaks, evasion tactics, or operational harmful instructions.
+
+  generated_memory_puzzles:
+    domain: memory
+    url: generated
+    license: generated-by-project
+    use:
+      - working_memory
+      - constraint_reasoning
+      - synthetic_iq_style_tasks
+
+excluded_by_default:
+  - copyrighted chess books without explicit license
+  - paid chess course transcripts
+  - proprietary IQ tests
+  - proprietary Jane Street puzzle collections or solutions
+  - private chat/forum/course scrapes
+  - jailbreak/evasion datasets that teach bypassing safeguards

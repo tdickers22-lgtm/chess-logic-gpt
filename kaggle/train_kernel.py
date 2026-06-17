@@ -59,11 +59,16 @@ elif pyproj:
 else:
     raise SystemExit("project source not found under /kaggle/input")
 os.chdir(REPO)
-sh([sys.executable, "-m", "pip", "install", "-q",
-    "transformers>=4.45", "trl>=0.12", "peft>=0.12", "accelerate>=0.33",
-    "datasets>=2.20", "bitsandbytes", "trackio", "python-chess", "orjson",
-    "pyyaml", "zstandard"])
-sh([sys.executable, "-m", "pip", "install", "-q", "-e", "."])
+# Kaggle still hands out P100 (sm_60), but its default torch (a Blackwell-era
+# build) dropped Pascal support. Pin torch 2.6.0 (sm_50-sm_90 -> covers both
+# P100 and T4); --upgrade-strategy only-if-needed keeps that pin from being
+# bumped. bitsandbytes goes in with --no-deps so it can't drag torch back up.
+# trl is GRPO-only and intentionally omitted from the SFT kernel.
+sh([sys.executable, "-m", "pip", "install", "-q", "--upgrade-strategy", "only-if-needed",
+    "torch==2.6.0", "transformers>=4.51", "peft>=0.12", "accelerate>=0.33",
+    "datasets>=2.20", "trackio", "python-chess", "orjson", "pyyaml", "zstandard"])
+sh([sys.executable, "-m", "pip", "install", "-q", "--no-deps", "bitsandbytes"])
+sh([sys.executable, "-m", "pip", "install", "-q", "--no-deps", "-e", "."])
 
 # 2. Wire the prepared JSONL into data/processed/.
 proc = REPO / "data" / "processed"

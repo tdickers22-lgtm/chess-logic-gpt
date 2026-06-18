@@ -27,6 +27,9 @@ def main() -> None:
     ap.add_argument("--limit", type=int, default=None)
     ap.add_argument("--max-new-tokens", type=int, default=512)
     ap.add_argument("--temperature", type=float, default=0.0)
+    ap.add_argument("--load-in-4bit", action="store_true", help="QLoRA-style 4-bit base (fits 16GB GPUs)")
+    ap.add_argument("--shuffle", action="store_true", help="shuffle before --limit for a representative sample")
+    ap.add_argument("--seed", type=int, default=0)
     args = ap.parse_args()
 
     import torch
@@ -35,8 +38,19 @@ def main() -> None:
     tokenizer = AutoTokenizer.from_pretrained(args.model, trust_remote_code=True, use_fast=True)
     if tokenizer.pad_token is None:
         tokenizer.pad_token = tokenizer.eos_token
+    quant = None
+    if args.load_in_4bit:
+        from transformers import BitsAndBytesConfig
+
+        quant = BitsAndBytesConfig(
+            load_in_4bit=True,
+            bnb_4bit_quant_type="nf4",
+            bnb_4bit_compute_dtype=torch.bfloat16,
+            bnb_4bit_use_double_quant=True,
+        )
     model = AutoModelForCausalLM.from_pretrained(
-        args.model, trust_remote_code=True, torch_dtype=torch.bfloat16, device_map="auto"
+        args.model, trust_remote_code=True, torch_dtype=torch.bfloat16,
+        quantization_config=quant, device_map="auto",
     )
     if args.adapter:
         from peft import PeftModel
@@ -58,6 +72,10 @@ def main() -> None:
         return tokenizer.decode(out[0][inputs["input_ids"].shape[1]:], skip_special_tokens=True)
 
     records = list(read_jsonl(args.data))
+    if args.shuffle:
+        import random
+
+        random.Random(args.seed).shuffle(records)
     if args.limit:
         records = records[: args.limit]
     report = evaluate(records, generate)

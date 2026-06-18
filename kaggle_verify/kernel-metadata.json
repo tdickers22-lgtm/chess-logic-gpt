@@ -1,13 +1,13 @@
 {
-  "id": "tobiasdicker/chess-logic-gpt-train",
-  "title": "chess-logic-gpt-train",
-  "code_file": "train_kernel.py",
+  "id": "tobiasdicker/chess-logic-gpt-verify",
+  "title": "chess-logic-gpt-verify",
+  "code_file": "verify.py",
   "language": "python",
   "kernel_type": "script",
   "is_private": true,
-  "enable_gpu": true,
+  "enable_gpu": false,
   "enable_tpu": false,
-  "enable_internet": true,
+  "enable_internet": false,
   "dataset_sources": [
     "tobiasdicker/chess-logic-gpt-data2"
   ],

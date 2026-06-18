@@ -9,6 +9,7 @@
   "enable_tpu": false,
   "enable_internet": true,
   "dataset_sources": [
+    "tobiasdicker/chess-logic-gpt-src",
     "tobiasdicker/chess-logic-gpt-data",
     "tobiasdicker/chess-logic-gpt-adapter"
   ],

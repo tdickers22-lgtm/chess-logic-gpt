@@ -38,19 +38,31 @@ def locate(name):
     return None
 
 
-# 1. Stage source + install (same recipe that worked for the SFT kernel).
+# 1. Stage source from the DEDICATED src dataset (deterministic — the data
+#    dataset also carries a bundled source tree, which may be stale; never use it
+#    for code). Falls back to a general scan only if no src dataset is attached.
+def pick(name, prefer="chess-logic-gpt-src"):
+    """Find `name` under any input, preferring a path in the dedicated src
+    dataset (robust to however Kaggle nests the mount)."""
+    hits = []
+    for r in roots:
+        hits += sorted(r.rglob(name))
+    chosen = [h for h in hits if prefer in str(h)] or hits
+    return chosen[0] if chosen else None
+
+
 if REPO.exists():
     shutil.rmtree(REPO)
 REPO.mkdir(parents=True)
-tar = locate("src.tar.gz")
-pyproj = locate("pyproject.toml")
+tar = pick("src.tar.gz")
+pyproj = pick("pyproject.toml")
 if tar:
     with tarfile.open(tar) as t:
         t.extractall(REPO)
 elif pyproj:
     shutil.copytree(pyproj.parent, REPO, dirs_exist_ok=True)
 else:
-    raise SystemExit("project source not found under /kaggle/input")
+    raise SystemExit("project source not found in src dataset")
 os.chdir(REPO)
 sh([sys.executable, "-m", "pip", "install", "-q", "--upgrade-strategy", "only-if-needed",
     "torch==2.6.0", "torchvision==0.21.0", "torchaudio==2.6.0",

@@ -30,6 +30,7 @@ def main() -> None:
     ap.add_argument("--load-in-4bit", action="store_true", help="QLoRA-style 4-bit base (fits 16GB GPUs)")
     ap.add_argument("--shuffle", action="store_true", help="shuffle before --limit for a representative sample")
     ap.add_argument("--seed", type=int, default=0)
+    ap.add_argument("--debug", type=int, default=0, help="print raw model output + score for the first N records")
     args = ap.parse_args()
 
     import torch
@@ -78,6 +79,19 @@ def main() -> None:
         random.Random(args.seed).shuffle(records)
     if args.limit:
         records = records[: args.limit]
+
+    if args.debug:
+        from chess_logic_gpt.rewards import score as _score
+
+        for rec in records[: args.debug]:
+            out = generate(rec)
+            res = _score(rec, out)
+            md = rec.get("metadata", {})
+            print("=" * 70, flush=True)
+            print("motif:", md.get("primary_motif"), "| gold line_uci:", md.get("line_uci"), flush=True)
+            print("RAW OUTPUT:", repr(out[:600]), flush=True)
+            print("SCORE:", res.score, "|", res.detail, flush=True)
+
     report = evaluate(records, generate)
 
     out_path = Path(args.out)

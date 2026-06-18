@@ -87,5 +87,5 @@ sh([sys.executable, "scripts/evaluate.py",
     "--data", str(ood),
     "--out", out,
     "--load-in-4bit", "--shuffle", "--seed", "0",
-    "--limit", "300", "--max-new-tokens", "256"])
+    "--limit", "12", "--debug", "12", "--max-new-tokens", "512"])
 print("EVAL DONE ->", out, flush=True)

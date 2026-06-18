@@ -37,6 +37,34 @@ _SYSTEM = (
 )
 
 
+def _narrate_line(motif: str, side: str, san_line: list[str], solver_sans: list[str]) -> str:
+    """Per-puzzle reasoning: narrate the *actual* forced line move-by-move.
+
+    The old trace was a fixed one-liner with the move buried inside, so SFT could
+    minimize loss by parroting a high-frequency move regardless of the board. This
+    ties the trace to THIS position: the key move, the numbered line (each solver
+    move paired with the forced reply), and the concrete outcome. The trace and
+    the answer are now mutually consistent, giving GRPO a non-degenerate start.
+    """
+    other = "Black" if side == "White" else "White"
+    steps: list[str] = []
+    for i in range(0, len(san_line), 2):
+        mv = san_line[i]
+        reply = san_line[i + 1] if i + 1 < len(san_line) else None
+        steps.append(f"{i // 2 + 1}. {mv} {reply}" if reply else f"{i // 2 + 1}. {mv}")
+    last = san_line[-1] if san_line else ""
+    if last.endswith("#"):
+        outcome = "forces checkmate"
+    elif "=" in last:
+        outcome = "promotes with a decisive attack"
+    else:
+        outcome = "wins decisive material"
+    return (
+        f"{side} to move; this is a {motif}. The key move is {solver_sans[0]}, and every "
+        f"{other.lower()} reply is forced. Line: {' '.join(steps)} — this {outcome}."
+    )
+
+
 def make_puzzle_record(
     puzzle_id: str,
     base_fen: str,
@@ -87,10 +115,7 @@ def make_puzzle_record(
         "Solve the tactic. Give the best move for the side to move, then the rest of the forced line.\n\n"
         f"FEN: {solver_fen}\n\n{ascii_board}\n\n{side} to move."
     )
-    reasoning = (
-        f"Motif: {motif}. {side} to move. Calculate the forcing line: {' '.join(san_line)}. "
-        f"The decisive idea is the {motif}; quiet alternatives let the opponent escape."
-    )
+    reasoning = _narrate_line(motif, side, san_line, solver_sans)
     answer = " ".join(solver_sans)
 
     return {

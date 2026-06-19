@@ -13,7 +13,10 @@ from pathlib import Path
 
 import modal
 
-PROJECT_ROOT = Path(__file__).resolve().parents[2]
+_here = Path(__file__).resolve()
+# parents[2] is the repo root locally; in Modal's container __file__ has no such
+# depth — fall back so the module imports cleanly there (path is only used locally).
+PROJECT_ROOT = _here.parents[2] if len(_here.parents) >= 3 else Path("/app")
 
 image = (
     modal.Image.debian_slim(python_version="3.11")

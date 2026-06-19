@@ -42,7 +42,7 @@ image = (
 app = modal.App("clg-eval", image=image)
 
 
-@app.function(gpu="A10G", timeout=60 * 60, secrets=[modal.Secret.from_name("huggingface-secret")])
+@app.function(gpu="A100-40GB", timeout=60 * 60, secrets=[modal.Secret.from_name("huggingface-secret")])
 def evaluate_adapter(adapter: str, limit: int = 300) -> str:
     import os
     import subprocess

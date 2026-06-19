@@ -33,7 +33,6 @@ image = (
     .add_local_dir(str(PROJECT_ROOT / "src"), remote_path="/app/src")
     .add_local_dir(str(PROJECT_ROOT / "scripts"), remote_path="/app/scripts")
     .add_local_dir(str(PROJECT_ROOT / "configs"), remote_path="/app/configs")
-    .run_commands("cd /app && pip install -e . --no-deps")
 )
 
 app = modal.App("clg-eval", image=image)
@@ -47,6 +46,7 @@ def evaluate_adapter(adapter: str, limit: int = 300) -> str:
     from huggingface_hub import hf_hub_download
 
     os.chdir("/app")
+    env = {**os.environ, "PYTHONPATH": "/app/src"}
     ood = hf_hub_download(
         "Tobiasd2/chess-logic-gpt-data",
         "processed/eval_puzzles_ood.jsonl",
@@ -64,6 +64,7 @@ def evaluate_adapter(adapter: str, limit: int = 300) -> str:
             "--limit", str(limit), "--max-new-tokens", "256", "--debug", "6",
         ],
         check=True,
+        env=env,
     )
     report = Path("/tmp/report.json").read_text()
     print("==== EVAL REPORT ====", flush=True)

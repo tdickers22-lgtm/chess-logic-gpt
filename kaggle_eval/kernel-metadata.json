@@ -10,8 +10,8 @@
   "enable_internet": true,
   "dataset_sources": [
     "tobiasdicker/chess-logic-gpt-src",
-    "tobiasdicker/chess-logic-gpt-data",
-    "tobiasdicker/chess-logic-gpt-adapter"
+    "tobiasdicker/chess-logic-gpt-data2",
+    "tobiasdicker/chess-logic-gpt-adapter-enriched"
   ],
   "competition_sources": [],
   "kernel_sources": []

@@ -112,30 +112,49 @@ def main() -> None:
     )
     callback = GuardrailCallback(logger, stop_file=str(Path(output_dir) / "STOP"))
 
-    # Continue from the SFT skill: merge the SFT LoRA into the base, then let GRPO
-    # learn a fresh LoRA on top. Merging (vs. stacking adapters) keeps generation
-    # simple and bakes the SFT behaviour into the policy GRPO starts from.
+    # Continue from the SFT skill. Two paths depending on the GPU:
+    #  - load_in_4bit (fits a 24GB L4): keep the base 4-bit and CONTINUE training
+    #    the SFT adapter directly (no merge) -- pass the peft model, no peft_config.
+    #  - else (A100): merge the SFT LoRA into the base, GRPO a fresh LoRA on top.
     model_for_trainer = model_cfg["base_model"]
+    peft_for_trainer = peft_config
     sft_adapter = model_cfg.get("sft_adapter")
     if sft_adapter:
         import torch
-        from peft import PeftModel
-        from transformers import AutoModelForCausalLM
+        from peft import PeftModel, prepare_model_for_kbit_training
+        from transformers import AutoModelForCausalLM, BitsAndBytesConfig
 
+        load_4bit = bool(model_cfg.get("load_in_4bit", False))
+        quant = (
+            BitsAndBytesConfig(
+                load_in_4bit=True,
+                bnb_4bit_quant_type="nf4",
+                bnb_4bit_compute_dtype=torch.bfloat16,
+                bnb_4bit_use_double_quant=True,
+            )
+            if load_4bit
+            else None
+        )
         base = AutoModelForCausalLM.from_pretrained(
             model_cfg["base_model"],
             torch_dtype=torch.bfloat16,
+            quantization_config=quant,
             trust_remote_code=bool(model_cfg.get("trust_remote_code", True)),
             device_map={"": 0},
         )
-        model_for_trainer = PeftModel.from_pretrained(base, sft_adapter).merge_and_unload()
+        if load_4bit:
+            base = prepare_model_for_kbit_training(base)
+            model_for_trainer = PeftModel.from_pretrained(base, sft_adapter, is_trainable=True)
+            peft_for_trainer = None  # train the existing adapter, don't add a fresh one
+        else:
+            model_for_trainer = PeftModel.from_pretrained(base, sft_adapter).merge_and_unload()
 
     trainer = GRPOTrainer(
         model=model_for_trainer,
         args=config,
         train_dataset=dataset,
         reward_funcs=[grpo_reward],
-        peft_config=peft_config,
+        peft_config=peft_for_trainer,
         processing_class=tokenizer,
         callbacks=[callback],
     )

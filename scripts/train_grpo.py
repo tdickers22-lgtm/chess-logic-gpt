@@ -112,8 +112,26 @@ def main() -> None:
     )
     callback = GuardrailCallback(logger, stop_file=str(Path(output_dir) / "STOP"))
 
+    # Continue from the SFT skill: merge the SFT LoRA into the base, then let GRPO
+    # learn a fresh LoRA on top. Merging (vs. stacking adapters) keeps generation
+    # simple and bakes the SFT behaviour into the policy GRPO starts from.
+    model_for_trainer = model_cfg["base_model"]
+    sft_adapter = model_cfg.get("sft_adapter")
+    if sft_adapter:
+        import torch
+        from peft import PeftModel
+        from transformers import AutoModelForCausalLM
+
+        base = AutoModelForCausalLM.from_pretrained(
+            model_cfg["base_model"],
+            torch_dtype=torch.bfloat16,
+            trust_remote_code=bool(model_cfg.get("trust_remote_code", True)),
+            device_map={"": 0},
+        )
+        model_for_trainer = PeftModel.from_pretrained(base, sft_adapter).merge_and_unload()
+
     trainer = GRPOTrainer(
-        model=model_cfg["base_model"],
+        model=model_for_trainer,
         args=config,
         train_dataset=dataset,
         reward_funcs=[grpo_reward],

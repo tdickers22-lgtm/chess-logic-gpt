@@ -1,0 +1,45 @@
+model:
+  # GRPO continues from the enriched SFT adapter (merged into the base), then
+  # learns a fresh LoRA under the verifiable reward. Small probe to see if the
+  # reward moves OOD accuracy off zero before spending more.
+  base_model: Qwen/Qwen3-8B
+  sft_adapter: Tobiasd2/chess-logic-gpt-8b-sft-enriched
+  trust_remote_code: true
+  push_to_hub: false
+  hub_model_id: null
+
+data:
+  train_file: data/processed/train_mix.jsonl
+
+grpo:
+  output_dir: data/outputs/qwen3-8b-grpo-probe
+  learning_rate: 1.0e-6
+  per_device_train_batch_size: 4
+  gradient_accumulation_steps: 4
+  num_generations: 4         # global batch (4x4) divisible by num_generations
+  max_prompt_length: 1024
+  max_completion_length: 256
+  num_train_epochs: 1
+  max_steps: 60              # PROBE: just enough to see the reward curve move
+  beta: 0.04
+  temperature: 1.0
+  logging_steps: 1
+  save_steps: 30
+  save_total_limit: 1
+  bf16: true
+  gradient_checkpointing: true
+  # vLLM intentionally OFF for the probe: avoids vLLM+merged-model integration
+  # risk; plain HF generation is fine for 60 steps on an A100-80GB.
+
+lora:
+  r: 16
+  alpha: 32
+  dropout: 0.05
+  target_modules:
+    - q_proj
+    - k_proj
+    - v_proj
+    - o_proj
+    - gate_proj
+    - up_proj
+    - down_proj

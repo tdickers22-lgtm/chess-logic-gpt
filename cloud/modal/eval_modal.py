@@ -71,6 +71,17 @@ def evaluate_adapter(adapter: str, limit: int = 300) -> str:
         env=env,
     )
     report = Path("/tmp/report.json").read_text()
+    # Persist to HF so the result survives even if the local client disconnects
+    # (we run detached); retrieve with hf_hub_download(reports/eval_ood.json).
+    from huggingface_hub import HfApi
+
+    HfApi().upload_file(
+        path_or_fileobj="/tmp/report.json",
+        path_in_repo="reports/eval_ood.json",
+        repo_id="Tobiasd2/chess-logic-gpt-data",
+        repo_type="dataset",
+        token=os.environ["HF_TOKEN"],
+    )
     print("==== EVAL REPORT ====", flush=True)
     print(report, flush=True)
     return report

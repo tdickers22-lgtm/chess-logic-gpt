@@ -118,7 +118,9 @@ def main() -> None:
     #  - else (A100): merge the SFT LoRA into the base, GRPO a fresh LoRA on top.
     model_for_trainer = model_cfg["base_model"]
     peft_for_trainer = peft_config
-    sft_adapter = model_cfg.get("sft_adapter")
+    # CLG_SFT_ADAPTER lets a runner (e.g. a Kaggle kernel) point at a locally
+    # attached adapter dir instead of a private HF repo, avoiding a token.
+    sft_adapter = os.environ.get("CLG_SFT_ADAPTER") or model_cfg.get("sft_adapter")
     if sft_adapter:
         import torch
         from peft import PeftModel, prepare_model_for_kbit_training

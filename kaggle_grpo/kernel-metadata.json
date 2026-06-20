@@ -1,0 +1,18 @@
+{
+  "id": "tobiasdicker/chess-logic-gpt-grpo",
+  "title": "chess-logic-gpt-grpo",
+  "code_file": "grpo_kernel.py",
+  "language": "python",
+  "kernel_type": "script",
+  "is_private": true,
+  "enable_gpu": true,
+  "enable_tpu": false,
+  "enable_internet": true,
+  "dataset_sources": [
+    "tobiasdicker/chess-logic-gpt-src",
+    "tobiasdicker/chess-logic-gpt-data2",
+    "tobiasdicker/chess-logic-gpt-adapter-enriched"
+  ],
+  "competition_sources": [],
+  "kernel_sources": []
+}

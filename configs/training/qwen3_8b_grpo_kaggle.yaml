@@ -1,0 +1,37 @@
+model:
+  # Kaggle 16GB GPU (P100/T4): 4-bit base + CONTINUE the enriched SFT adapter
+  # (no bf16 merge). sft_adapter is overridden at runtime by CLG_SFT_ADAPTER to
+  # the locally-attached Kaggle adapter dataset (no HF token needed).
+  base_model: Qwen/Qwen3-8B
+  sft_adapter: Tobiasd2/chess-logic-gpt-8b-sft-enriched
+  load_in_4bit: true
+  trust_remote_code: true
+  push_to_hub: false
+  hub_model_id: null
+
+data:
+  train_file: data/processed/train_mix.jsonl
+
+grpo:
+  output_dir: data/outputs/qwen3-8b-grpo-kaggle
+  learning_rate: 1.0e-6
+  per_device_train_batch_size: 2
+  gradient_accumulation_steps: 2
+  num_generations: 2          # global batch (2x2=4) divisible by num_generations
+  max_prompt_length: 640
+  max_completion_length: 160  # short to keep KV-cache small on 16GB
+  num_train_epochs: 1
+  max_steps: 30               # PROBE: see if the verifiable reward moves
+  beta: 0.04
+  temperature: 1.0
+  logging_steps: 1
+  save_steps: 15
+  save_total_limit: 1
+  bf16: true
+  gradient_checkpointing: true
+
+lora:                          # ignored in 4-bit/continue-adapter mode
+  r: 16
+  alpha: 32
+  dropout: 0.05
+  target_modules: [q_proj, k_proj, v_proj, o_proj, gate_proj, up_proj, down_proj]

@@ -15,6 +15,7 @@ are used; applied/ethics SFT data is skipped automatically.
 from __future__ import annotations
 
 import argparse
+import inspect
 import os
 from pathlib import Path
 
@@ -80,28 +81,35 @@ def main() -> None:
     }
 
     output_dir = grpo_cfg["output_dir"]
-    config = GRPOConfig(
-        output_dir=output_dir,
-        learning_rate=float(grpo_cfg.get("learning_rate", 1e-6)),
-        per_device_train_batch_size=int(grpo_cfg.get("per_device_train_batch_size", 4)),
-        gradient_accumulation_steps=int(grpo_cfg.get("gradient_accumulation_steps", 4)),
-        num_generations=int(grpo_cfg.get("num_generations", 8)),
-        max_prompt_length=int(grpo_cfg.get("max_prompt_length", 1024)),
-        max_completion_length=int(grpo_cfg.get("max_completion_length", 1024)),
-        num_train_epochs=float(grpo_cfg.get("num_train_epochs", 1)),
-        max_steps=int(grpo_cfg.get("max_steps", -1)),
-        beta=float(grpo_cfg.get("beta", 0.04)),
-        temperature=float(grpo_cfg.get("temperature", 1.0)),
-        logging_steps=int(grpo_cfg.get("logging_steps", 1)),
-        save_steps=int(grpo_cfg.get("save_steps", 100)),
-        save_total_limit=int(grpo_cfg.get("save_total_limit", 3)),
-        bf16=bool(grpo_cfg.get("bf16", True)),
-        gradient_checkpointing=bool(grpo_cfg.get("gradient_checkpointing", True)),
-        report_to="none",  # GuardrailCallback owns Trackio logging
-        push_to_hub=bool(model_cfg.get("push_to_hub", False)),
-        hub_model_id=model_cfg.get("hub_model_id"),
+    desired = {
+        "output_dir": output_dir,
+        "learning_rate": float(grpo_cfg.get("learning_rate", 1e-6)),
+        "per_device_train_batch_size": int(grpo_cfg.get("per_device_train_batch_size", 4)),
+        "gradient_accumulation_steps": int(grpo_cfg.get("gradient_accumulation_steps", 4)),
+        "num_generations": int(grpo_cfg.get("num_generations", 8)),
+        "max_prompt_length": int(grpo_cfg.get("max_prompt_length", 1024)),
+        "max_completion_length": int(grpo_cfg.get("max_completion_length", 1024)),
+        "num_train_epochs": float(grpo_cfg.get("num_train_epochs", 1)),
+        "max_steps": int(grpo_cfg.get("max_steps", -1)),
+        "beta": float(grpo_cfg.get("beta", 0.04)),
+        "temperature": float(grpo_cfg.get("temperature", 1.0)),
+        "logging_steps": int(grpo_cfg.get("logging_steps", 1)),
+        "save_steps": int(grpo_cfg.get("save_steps", 100)),
+        "save_total_limit": int(grpo_cfg.get("save_total_limit", 3)),
+        "bf16": bool(grpo_cfg.get("bf16", True)),
+        "gradient_checkpointing": bool(grpo_cfg.get("gradient_checkpointing", True)),
+        "report_to": "none",  # GuardrailCallback owns Trackio logging
+        "push_to_hub": bool(model_cfg.get("push_to_hub", False)),
+        "hub_model_id": model_cfg.get("hub_model_id"),
         **vllm_kwargs,
-    )
+    }
+    # GRPOConfig's accepted arguments vary across TRL versions (e.g. max_prompt_length
+    # was renamed/removed); keep only what this installed version accepts.
+    accepted = set(inspect.signature(GRPOConfig).parameters) | set(getattr(GRPOConfig, "__dataclass_fields__", {}))
+    dropped = sorted(k for k in desired if k not in accepted)
+    if dropped:
+        print("GRPOConfig: dropping args unsupported by this TRL version:", dropped, flush=True)
+    config = GRPOConfig(**{k: v for k, v in desired.items() if k in accepted})
 
     logger = MetricLogger(
         Path(output_dir) / "metrics.jsonl",

@@ -16,6 +16,7 @@ from pathlib import Path
 from chess_logic_gpt.eval import evaluate
 from chess_logic_gpt.records import read_jsonl
 from chess_logic_gpt.training.formatting import render_chat
+from chess_logic_gpt.training.precision import dtype_from_config
 
 
 def main() -> None:
@@ -40,17 +41,18 @@ def main() -> None:
     if tokenizer.pad_token is None:
         tokenizer.pad_token = tokenizer.eos_token
     quant = None
+    dtype = dtype_from_config("auto")
     if args.load_in_4bit:
         from transformers import BitsAndBytesConfig
 
         quant = BitsAndBytesConfig(
             load_in_4bit=True,
             bnb_4bit_quant_type="nf4",
-            bnb_4bit_compute_dtype=torch.bfloat16,
+            bnb_4bit_compute_dtype=dtype,
             bnb_4bit_use_double_quant=True,
         )
     model = AutoModelForCausalLM.from_pretrained(
-        args.model, trust_remote_code=True, torch_dtype=torch.bfloat16,
+        args.model, trust_remote_code=True, torch_dtype=dtype,
         quantization_config=quant, device_map="auto",
     )
     if args.adapter:

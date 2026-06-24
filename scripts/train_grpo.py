@@ -31,6 +31,7 @@ from chess_logic_gpt.training.callbacks import GuardrailCallback
 from chess_logic_gpt.training.formatting import render_chat
 from chess_logic_gpt.training.grpo_data import build_prompt_rows
 from chess_logic_gpt.training.monitoring import MetricLogger
+from chess_logic_gpt.training.precision import dtype_from_config, training_precision_flags
 
 
 def build_prompt_dataset(path: str, tokenizer) -> Dataset:  # noqa: ANN001
@@ -80,6 +81,7 @@ def main() -> None:
         if key in grpo_cfg
     }
 
+    bf16, fp16 = training_precision_flags(grpo_cfg)
     output_dir = grpo_cfg["output_dir"]
     desired = {
         "output_dir": output_dir,
@@ -96,7 +98,8 @@ def main() -> None:
         "logging_steps": int(grpo_cfg.get("logging_steps", 1)),
         "save_steps": int(grpo_cfg.get("save_steps", 100)),
         "save_total_limit": int(grpo_cfg.get("save_total_limit", 3)),
-        "bf16": bool(grpo_cfg.get("bf16", True)),
+        "bf16": bf16,
+        "fp16": fp16,
         "gradient_checkpointing": bool(grpo_cfg.get("gradient_checkpointing", True)),
         "report_to": "none",  # GuardrailCallback owns Trackio logging
         "push_to_hub": bool(model_cfg.get("push_to_hub", False)),
@@ -130,16 +133,16 @@ def main() -> None:
     # attached adapter dir instead of a private HF repo, avoiding a token.
     sft_adapter = os.environ.get("CLG_SFT_ADAPTER") or model_cfg.get("sft_adapter")
     if sft_adapter:
-        import torch
         from peft import PeftModel, prepare_model_for_kbit_training
         from transformers import AutoModelForCausalLM, BitsAndBytesConfig
 
         load_4bit = bool(model_cfg.get("load_in_4bit", False))
+        dtype = dtype_from_config(model_cfg.get("bnb_4bit_compute_dtype", "auto"))
         quant = (
             BitsAndBytesConfig(
                 load_in_4bit=True,
                 bnb_4bit_quant_type="nf4",
-                bnb_4bit_compute_dtype=torch.bfloat16,
+                bnb_4bit_compute_dtype=dtype,
                 bnb_4bit_use_double_quant=True,
             )
             if load_4bit
@@ -147,7 +150,7 @@ def main() -> None:
         )
         base = AutoModelForCausalLM.from_pretrained(
             model_cfg["base_model"],
-            torch_dtype=torch.bfloat16,
+            torch_dtype=dtype,
             quantization_config=quant,
             trust_remote_code=bool(model_cfg.get("trust_remote_code", True)),
             device_map={"": 0},

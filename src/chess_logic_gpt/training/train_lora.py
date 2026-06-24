@@ -4,7 +4,6 @@ import argparse
 import os
 from pathlib import Path
 
-import torch
 import yaml
 from datasets import load_dataset
 from peft import LoraConfig, get_peft_model, prepare_model_for_kbit_training
@@ -20,6 +19,7 @@ from transformers import (
 from chess_logic_gpt.training.callbacks import GuardrailCallback
 from chess_logic_gpt.training.formatting import build_supervised_example
 from chess_logic_gpt.training.monitoring import MetricLogger
+from chess_logic_gpt.training.precision import dtype_from_config, training_precision_flags
 
 
 def main() -> None:
@@ -42,11 +42,12 @@ def main() -> None:
         tokenizer.pad_token = tokenizer.eos_token
 
     quantization_config = None
+    compute_dtype = dtype_from_config(model_cfg.get("bnb_4bit_compute_dtype", "auto"))
     if model_cfg.get("load_in_4bit", False):
         quantization_config = BitsAndBytesConfig(
             load_in_4bit=True,
             bnb_4bit_quant_type="nf4",
-            bnb_4bit_compute_dtype=torch.bfloat16,
+            bnb_4bit_compute_dtype=compute_dtype,
             bnb_4bit_use_double_quant=True,
         )
 
@@ -58,6 +59,8 @@ def main() -> None:
     )
     if quantization_config is not None:
         model = prepare_model_for_kbit_training(model)
+    if train_cfg.get("gradient_checkpointing", True) and hasattr(model.config, "use_cache"):
+        model.config.use_cache = False
 
     peft_config = LoraConfig(
         r=int(lora_cfg["r"]),
@@ -98,6 +101,7 @@ def main() -> None:
         remove_columns=ds["train"].column_names,
     )
 
+    bf16, fp16 = training_precision_flags(train_cfg)
     args_out = TrainingArguments(
         output_dir=train_cfg["output_dir"],
         num_train_epochs=float(train_cfg.get("num_train_epochs", 1)),
@@ -112,7 +116,8 @@ def main() -> None:
         eval_steps=int(train_cfg.get("eval_steps", 200)),
         save_steps=int(train_cfg.get("save_steps", 200)),
         save_total_limit=int(train_cfg.get("save_total_limit", 3)),
-        bf16=bool(train_cfg.get("bf16", True)),
+        bf16=bf16,
+        fp16=fp16,
         gradient_checkpointing=bool(train_cfg.get("gradient_checkpointing", True)),
         report_to="none",  # GuardrailCallback owns Trackio logging
         eval_strategy="steps" if "validation" in tokenized else "no",

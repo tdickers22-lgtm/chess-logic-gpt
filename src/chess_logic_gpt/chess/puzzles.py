@@ -37,32 +37,113 @@ _SYSTEM = (
 )
 
 
-def _narrate_line(motif: str, side: str, san_line: list[str], solver_sans: list[str]) -> str:
-    """Per-puzzle reasoning: narrate the *actual* forced line move-by-move.
+def _describe_capture(board: chess.Board, move: chess.Move) -> str | None:
+    """A concrete, board-grounded description of what a capture takes."""
+    if board.is_en_passant(move):
+        return "wins a pawn"
+    piece = board.piece_at(move.to_square)
+    if piece is not None:
+        return f"takes the {chess.piece_name(piece.piece_type)} on {chess.square_name(move.to_square)}"
+    return None
 
-    The old trace was a fixed one-liner with the move buried inside, so SFT could
-    minimize loss by parroting a high-frequency move regardless of the board. This
-    ties the trace to THIS position: the key move, the numbered line (each solver
-    move paired with the forced reply), and the concrete outcome. The trace and
-    the answer are now mutually consistent, giving GRPO a non-degenerate start.
+
+def calculation_trace(
+    solver_fen: str,
+    line_uci: list[str],
+    motif: str,
+    side: str,
+    top_moves: list[tuple[str, str, int]] | None = None,
+) -> tuple[str, str]:
+    """Build a reasoning trace that *derives* the move by calculation, not assertion.
+
+    The old trace stated "the key move is X" up front, so SFT could minimize loss
+    by parroting a high-frequency move without ever reading the board. This instead
+    models the search a solver actually does, all grounded in THIS position so the
+    target is board-conditional:
+
+      1. enumerate the forcing resources (every legal check and capture),
+      2. discriminate the candidates by evaluation (engine ``top_moves`` when
+         available -- the solution's score vs the next-best move),
+      3. walk the forced line move-by-move with concrete effects (what each capture
+         takes, which replies are the only legal move vs best defence, mate),
+      4. conclude with the move(s) as the *answer* to the calculation.
+
+    ``top_moves`` is an optional engine multipv result as ``(san, score_str, rank)``
+    in best-first order; with no engine the trace still derives the move from the
+    board's forcing moves and the verified forced line.
     """
-    other = "Black" if side == "White" else "White"
-    steps: list[str] = []
-    for i in range(0, len(san_line), 2):
-        mv = san_line[i]
-        reply = san_line[i + 1] if i + 1 < len(san_line) else None
-        steps.append(f"{i // 2 + 1}. {mv} {reply}" if reply else f"{i // 2 + 1}. {mv}")
-    last = san_line[-1] if san_line else ""
-    if last.endswith("#"):
-        outcome = "forces checkmate"
-    elif "=" in last:
-        outcome = "promotes with a decisive attack"
+    board = chess.Board(solver_fen)
+    checks = [board.san(m) for m in board.legal_moves if board.gives_check(m)]
+    caps = [board.san(m) for m in board.legal_moves if board.is_capture(m)]
+    solver_san = board.san(chess.Move.from_uci(line_uci[0]))
+
+    parts: list[str] = []
+    forcing: list[str] = []
+    if checks:
+        forcing.append("checks " + ", ".join(checks[:4]))
+    if caps:
+        forcing.append("captures " + ", ".join(caps[:5]))
+    if forcing:
+        parts.append(
+            f"{side} to move. I scan the forcing moves first — {'; '.join(forcing)} — "
+            f"since a {motif} has to come from a move the opponent cannot sidestep."
+        )
     else:
-        outcome = "wins decisive material"
-    return (
-        f"{side} to move; this is a {motif}. The key move is {solver_sans[0]}, and every "
-        f"{other.lower()} reply is forced. Line: {' '.join(steps)} — this {outcome}."
-    )
+        parts.append(
+            f"{side} to move. There is no check or capture, so the {motif} must come "
+            f"from a quiet move that sets up an unstoppable threat."
+        )
+
+    if top_moves:
+        sol = next((t for t in top_moves if t[0] == solver_san), None)
+        alt = next((t for t in top_moves if t[0] != solver_san), None)
+        if sol is not None and sol[2] == 0 and alt is not None:
+            parts.append(
+                f"Calculating the candidates, {solver_san} evaluates to {sol[1]} — "
+                f"ahead of the next-best {alt[0]} ({alt[1]})."
+            )
+        elif sol is not None:
+            parts.append(f"Calculating, {solver_san} evaluates to {sol[1]} and wins by force.")
+        else:
+            parts.append(f"The move that survives calculation is {solver_san}.")
+    else:
+        parts.append(f"The forcing move that holds up is {solver_san}.")
+
+    # opponent-reply legal-move counts -> forcedness annotations
+    counts_board = chess.Board(solver_fen)
+    reply_counts: dict[int, int] = {}
+    for idx, uci in enumerate(line_uci):
+        if idx % 2 == 1:
+            reply_counts[idx] = sum(1 for _ in counts_board.legal_moves)
+        counts_board.push(chess.Move.from_uci(uci))
+
+    board = chess.Board(solver_fen)
+    sans: list[str] = []
+    descs: list[str] = []
+    for idx, uci in enumerate(line_uci):
+        move = chess.Move.from_uci(uci)
+        san = board.san(move)
+        sans.append(san)
+        effects: list[str] = []
+        if board.is_capture(move):
+            taken = _describe_capture(board, move)
+            if taken:
+                effects.append(taken)
+        gives_check = board.gives_check(move)
+        board.push(move)
+        if board.is_checkmate():
+            effects.append("mate")
+        elif gives_check:
+            effects.append("check")
+        note = ""
+        if idx in reply_counts:
+            note = " (only move)" if reply_counts[idx] == 1 else " (best defence)"
+        descs.append(f"{san}" + (f" — {', '.join(effects)}" if effects else "") + note)
+
+    parts.append("The line is forced: " + "; ".join(descs) + ".")
+    answer = " ".join(sans[0::2])
+    parts.append(f"Answer: {answer}.")
+    return " ".join(parts), answer
 
 
 def make_puzzle_record(
@@ -115,8 +196,7 @@ def make_puzzle_record(
         "Solve the tactic. Give the best move for the side to move, then the rest of the forced line.\n\n"
         f"FEN: {solver_fen}\n\n{ascii_board}\n\n{side} to move."
     )
-    reasoning = _narrate_line(motif, side, san_line, solver_sans)
-    answer = " ".join(solver_sans)
+    reasoning, answer = calculation_trace(solver_fen, line, motif, side)
 
     return {
         "id": stable_id("lichess-puzzle", puzzle_id),

@@ -31,6 +31,10 @@ mkdir -p data/processed "$OUT_DIR"
 
 "$PYTHON_BIN" -m pip install --upgrade pip
 "$PYTHON_BIN" -m pip install -e ".[training]"
+# The Deep Learning VM can ship mismatched optional audio/vision wheels. This
+# text-only training path does not need them, and Transformers may import them
+# opportunistically during module discovery.
+sudo "$PYTHON_BIN" -m pip uninstall -y torchaudio torchvision torchtext || true
 
 gcloud storage cp "${CLG_RUN_BUCKET%/}/data/train_mix_45_30_25.jsonl" \
   data/processed/train_mix_45_30_25.jsonl
@@ -53,7 +57,10 @@ SYNC_PID=$!
 trap 'kill "$SYNC_PID" 2>/dev/null || true; sync_once' EXIT
 
 export HF_HUB_ENABLE_HF_TRANSFER=1
+export HF_XET_HIGH_PERFORMANCE=1
 export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
+export PYTORCH_ALLOC_CONF=expandable_segments:True
+export TRANSFORMERS_NO_TORCHAUDIO=1
 export TOKENIZERS_PARALLELISM=false
 export TRACKIO_PROJECT="${TRACKIO_PROJECT:-chess-logic-gpt}"
 export TRACKIO_RUN="${TRACKIO_RUN:-sft-gcp-45-30-25}"

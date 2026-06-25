@@ -102,26 +102,30 @@ def main() -> None:
     )
 
     bf16, fp16 = training_precision_flags(train_cfg)
-    args_out = TrainingArguments(
-        output_dir=train_cfg["output_dir"],
-        num_train_epochs=float(train_cfg.get("num_train_epochs", 1)),
-        max_steps=int(train_cfg.get("max_steps", -1)),
-        per_device_train_batch_size=int(train_cfg.get("per_device_train_batch_size", 1)),
-        per_device_eval_batch_size=int(train_cfg.get("per_device_eval_batch_size", 1)),
-        gradient_accumulation_steps=int(train_cfg.get("gradient_accumulation_steps", 16)),
-        learning_rate=float(train_cfg.get("learning_rate", 8e-5)),
-        warmup_ratio=float(train_cfg.get("warmup_ratio", 0.03)),
-        weight_decay=float(train_cfg.get("weight_decay", 0.01)),
-        logging_steps=int(train_cfg.get("logging_steps", 10)),
-        eval_steps=int(train_cfg.get("eval_steps", 200)),
-        save_steps=int(train_cfg.get("save_steps", 200)),
-        save_total_limit=int(train_cfg.get("save_total_limit", 3)),
-        bf16=bf16,
-        fp16=fp16,
-        gradient_checkpointing=bool(train_cfg.get("gradient_checkpointing", True)),
-        report_to="none",  # GuardrailCallback owns Trackio logging
-        eval_strategy="steps" if "validation" in tokenized else "no",
-    )
+    training_args_kwargs = {
+        "output_dir": train_cfg["output_dir"],
+        "num_train_epochs": float(train_cfg.get("num_train_epochs", 1)),
+        "max_steps": int(train_cfg.get("max_steps", -1)),
+        "per_device_train_batch_size": int(train_cfg.get("per_device_train_batch_size", 1)),
+        "per_device_eval_batch_size": int(train_cfg.get("per_device_eval_batch_size", 1)),
+        "gradient_accumulation_steps": int(train_cfg.get("gradient_accumulation_steps", 16)),
+        "learning_rate": float(train_cfg.get("learning_rate", 8e-5)),
+        "weight_decay": float(train_cfg.get("weight_decay", 0.01)),
+        "logging_steps": int(train_cfg.get("logging_steps", 10)),
+        "eval_steps": int(train_cfg.get("eval_steps", 200)),
+        "save_steps": int(train_cfg.get("save_steps", 200)),
+        "save_total_limit": int(train_cfg.get("save_total_limit", 3)),
+        "bf16": bf16,
+        "fp16": fp16,
+        "gradient_checkpointing": bool(train_cfg.get("gradient_checkpointing", True)),
+        "report_to": "none",  # GuardrailCallback owns Trackio logging
+        "eval_strategy": "steps" if "validation" in tokenized else "no",
+    }
+    if "warmup_steps" in train_cfg:
+        training_args_kwargs["warmup_steps"] = int(train_cfg["warmup_steps"])
+    else:
+        training_args_kwargs["warmup_ratio"] = float(train_cfg.get("warmup_ratio", 0.03))
+    args_out = TrainingArguments(**training_args_kwargs)
 
     logger = MetricLogger(
         Path(train_cfg["output_dir"]) / "metrics.jsonl",

@@ -1,0 +1,23 @@
+version: 1
+seed: 42
+target_mix:
+  chess: 0.45
+  logic: 0.30
+  memory: 0.25
+inputs:
+  chess:
+    - data/processed/chess_positions.jsonl
+    - data/processed/lichess_puzzles.jsonl
+    - data/processed/endgames_syzygy.jsonl
+  logic:
+    - data/processed/logic_synth.jsonl
+    - data/processed/applied_reasoning.jsonl
+    - data/processed/ethics_calibration.jsonl
+    - data/processed/lean_traces.jsonl
+  memory:
+    - data/processed/memory_synth.jsonl
+output:
+  train: data/processed/train_mix_45_30_25.jsonl
+  eval: data/processed/eval_mix_45_30_25.jsonl
+eval_fraction: 0.02
+max_records: null

@@ -1,0 +1,50 @@
+model:
+  # GCP L4 path: keep Qwen3-8B in 4-bit and continue the evaluated SFT adapter.
+  # Override with CLG_SFT_ADAPTER when launching from another checkpoint.
+  base_model: Qwen/Qwen3-8B
+  sft_adapter: data/outputs/qwen3-8b-chess-logic-lora-45-30-25/checkpoint-1600
+  load_in_4bit: true
+  bnb_4bit_compute_dtype: auto
+  trust_remote_code: true
+  push_to_hub: false
+  hub_model_id: null
+
+data:
+  # Built by scripts/gcp_grpo_vm_run.sh from the 45/30/25 SFT mix, keeping only
+  # verifiable records and preserving the requested chess/logic/memory skew.
+  train_file: data/processed/grpo_mix_45_30_25.jsonl
+
+grpo:
+  output_dir: data/outputs/qwen3-8b-grpo-gcp-45-30-25-from-sft1600
+  learning_rate: 1.0e-6
+  per_device_train_batch_size: 2
+  gradient_accumulation_steps: 4
+  num_generations: 8
+  max_completion_length: 160
+  num_train_epochs: 1
+  max_steps: 120
+  beta: 0.04
+  temperature: 1.0
+  logging_steps: 1
+  save_steps: 20
+  save_total_limit: 4
+  bf16: auto
+  fp16: auto
+  gradient_checkpointing: true
+  resume_from_checkpoint: true
+  report_to: none
+
+lora:
+  # Ignored while continuing the SFT adapter in 4-bit mode; kept for non-QLoRA
+  # merge-and-train paths.
+  r: 16
+  alpha: 32
+  dropout: 0.05
+  target_modules:
+    - q_proj
+    - k_proj
+    - v_proj
+    - o_proj
+    - gate_proj
+    - up_proj
+    - down_proj

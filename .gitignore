@@ -15,3 +15,4 @@ data/outputs/*
 /outputs/
 wandb/
 .env
+kaggle_ds_src/

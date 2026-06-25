@@ -17,6 +17,7 @@ CLG_RUN_ID="${CLG_RUN_ID:-gcp-sft-$(date -u +%Y%m%d-%H%M%S)}"
 SFT_CONFIG="${SFT_CONFIG:-configs/training/qwen3_8b_lora_gcp_45_30_25.yaml}"
 OUT_DIR="data/outputs/qwen3-8b-chess-logic-lora-45-30-25"
 REMOTE_RUN="${CLG_RUN_BUCKET%/}/runs/${CLG_RUN_ID}"
+PYTHON_BIN="${PYTHON_BIN:-python3}"
 
 mkdir -p data/processed "$OUT_DIR"
 
@@ -28,8 +29,8 @@ mkdir -p data/processed "$OUT_DIR"
   date -u +"started_at=%Y-%m-%dT%H:%M:%SZ"
 } | tee "$OUT_DIR/run.env"
 
-python -m pip install --upgrade pip
-python -m pip install -e ".[training]"
+"$PYTHON_BIN" -m pip install --upgrade pip
+"$PYTHON_BIN" -m pip install -e ".[training]"
 
 gcloud storage cp "${CLG_RUN_BUCKET%/}/data/train_mix_45_30_25.jsonl" \
   data/processed/train_mix_45_30_25.jsonl
@@ -57,5 +58,5 @@ export TOKENIZERS_PARALLELISM=false
 export TRACKIO_PROJECT="${TRACKIO_PROJECT:-chess-logic-gpt}"
 export TRACKIO_RUN="${TRACKIO_RUN:-sft-gcp-45-30-25}"
 
-python scripts/train_lora.py --config "$SFT_CONFIG" 2>&1 | tee "$OUT_DIR/train.log"
+"$PYTHON_BIN" scripts/train_lora.py --config "$SFT_CONFIG" 2>&1 | tee "$OUT_DIR/train.log"
 sync_once

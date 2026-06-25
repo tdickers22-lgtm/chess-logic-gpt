@@ -16,7 +16,7 @@ from transformers import (
     TrainingArguments,
 )
 
-from chess_logic_gpt.training.callbacks import GuardrailCallback
+from chess_logic_gpt.training.callbacks import CheckpointMirrorCallback, GuardrailCallback
 from chess_logic_gpt.training.formatting import build_supervised_example
 from chess_logic_gpt.training.monitoring import MetricLogger
 from chess_logic_gpt.training.precision import dtype_from_config, training_precision_flags
@@ -130,6 +130,16 @@ def main() -> None:
         space_id=os.environ.get("TRACKIO_SPACE_ID"),
         config={"phase": "sft", "base_model": model_cfg["base_model"]},
     )
+    callbacks = [GuardrailCallback(logger, stop_file=str(Path(train_cfg["output_dir"]) / "STOP"))]
+    mirror_dir = train_cfg.get("checkpoint_mirror_dir") or os.environ.get("CLG_CHECKPOINT_MIRROR_DIR")
+    if mirror_dir:
+        callbacks.append(
+            CheckpointMirrorCallback(
+                mirror_dir,
+                keep=int(train_cfg.get("checkpoint_mirror_keep", train_cfg.get("save_total_limit", 5))),
+            )
+        )
+
     trainer = Trainer(
         model=model,
         args=args_out,
@@ -138,7 +148,7 @@ def main() -> None:
         data_collator=DataCollatorForSeq2Seq(
             tokenizer=tokenizer, model=model, label_pad_token_id=-100, padding=True
         ),
-        callbacks=[GuardrailCallback(logger, stop_file=str(Path(train_cfg["output_dir"]) / "STOP"))],
+        callbacks=callbacks,
     )
     # Resume from the last checkpoint when asked, so an interrupted free-tier
     # session (Kaggle/Lightning preemption, 12h cap) picks up where it left off.

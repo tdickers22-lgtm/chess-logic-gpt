@@ -11,6 +11,7 @@ torch-free monitoring core stays unit-testable on its own. On every log it:
 
 from __future__ import annotations
 
+import shutil
 from pathlib import Path
 
 from transformers import TrainerCallback
@@ -49,4 +50,55 @@ class GuardrailCallback(TrainerCallback):
 
     def on_train_end(self, args, state, control, **kwargs):  # noqa: ANN001
         self.logger.finish()
+        return control
+
+
+class CheckpointMirrorCallback(TrainerCallback):
+    """Copy each completed Trainer checkpoint to a second location.
+
+    Colab local disk can disappear when a runtime dies. Mirroring every checkpoint
+    to Drive as soon as it is saved is more robust than waiting for a final
+    notebook cell after training exits.
+    """
+
+    def __init__(self, mirror_dir: str | Path, *, keep: int = 5) -> None:
+        self.mirror_dir = Path(mirror_dir)
+        self.keep = keep
+
+    @staticmethod
+    def _checkpoint_step(path: Path) -> int:
+        try:
+            return int(path.name.split("-")[-1])
+        except ValueError:
+            return -1
+
+    def _prune(self) -> None:
+        checkpoints = sorted(
+            (p for p in self.mirror_dir.glob("checkpoint-*") if p.is_dir()),
+            key=self._checkpoint_step,
+        )
+        for old in checkpoints[: max(0, len(checkpoints) - self.keep)]:
+            shutil.rmtree(old, ignore_errors=True)
+
+    def on_save(self, args, state, control, **kwargs):  # noqa: ANN001
+        if state.global_step <= 0:
+            return control
+        src = Path(args.output_dir) / f"checkpoint-{state.global_step}"
+        if not src.is_dir():
+            return control
+        self.mirror_dir.mkdir(parents=True, exist_ok=True)
+        dest = self.mirror_dir / src.name
+        tmp = self.mirror_dir / f".{src.name}.tmp"
+        try:
+            if tmp.exists():
+                shutil.rmtree(tmp)
+            shutil.copytree(src, tmp)
+            if dest.exists():
+                shutil.rmtree(dest)
+            tmp.rename(dest)
+            self._prune()
+            print(f"Mirrored checkpoint -> {dest}", flush=True)
+        except Exception as exc:
+            print(f"checkpoint mirror failed for {src}: {exc}", flush=True)
+            shutil.rmtree(tmp, ignore_errors=True)
         return control

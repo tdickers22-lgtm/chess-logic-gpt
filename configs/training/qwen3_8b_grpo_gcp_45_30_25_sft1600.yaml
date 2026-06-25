@@ -26,8 +26,8 @@ grpo:
   beta: 0.04
   temperature: 1.0
   logging_steps: 1
-  save_steps: 20
-  save_total_limit: 4
+  save_steps: 5
+  save_total_limit: 8
   bf16: auto
   fp16: auto
   gradient_checkpointing: true

@@ -24,6 +24,7 @@ export CLG_SFT_ADAPTER="${CLG_SFT_ADAPTER:-$SFT_ADAPTER_DEFAULT}"
 GRPO_MIX_SIZE="${GRPO_MIX_SIZE:-24000}"
 GRPO_SOURCE_DATA="${GRPO_SOURCE_DATA:-data/processed/train_mix_45_30_25.jsonl}"
 GRPO_TRAIN_DATA="${GRPO_TRAIN_DATA:-data/processed/grpo_mix_45_30_25.jsonl}"
+SYNC_INTERVAL_SECONDS="${CLG_SYNC_INTERVAL_SECONDS:-60}"
 export GRPO_MIX_SIZE GRPO_SOURCE_DATA GRPO_TRAIN_DATA
 
 mkdir -p data/processed "$OUT_DIR"
@@ -111,7 +112,7 @@ sync_once() {
 sync_loop() {
   while true; do
     sync_once
-    sleep 300
+    sleep "$SYNC_INTERVAL_SECONDS"
   done
 }
 

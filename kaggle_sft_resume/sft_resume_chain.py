@@ -30,11 +30,15 @@ import sys
 import tarfile
 from pathlib import Path
 
+import yaml
+
 WORK = Path("/kaggle/working")
 REPO = WORK / "chess-logic-gpt"
 CKPT_DATASET = "tobiasdicker/chess-logic-gpt-checkpoints"
-# Must match training.output_dir in configs/training/qwen3_8b_lora.yaml (relative to REPO).
-OUT_SUBDIR = "data/outputs/qwen3-8b-chess-logic-lora"
+# Write the real 8B checkpoints directly under /kaggle/working so Kaggle captures
+# them even if the process is killed by the session time cap before cleanup code.
+OUT_DIR = WORK / "qwen3-8b-chess-logic-lora"
+RUNTIME_CONFIG = WORK / "qwen3_8b_lora_kaggle.yaml"
 
 
 def sh(cmd, **kw):
@@ -95,7 +99,7 @@ print("data:", sorted(p.name for p in proc.glob("*.jsonl")), flush=True)
 # 4. Pull the latest prior checkpoint into the output dir so HF Trainer's
 #    get_last_checkpoint (resume_from_checkpoint: true) resumes it. First session
 #    finds nothing -> fresh start that bootstraps the chain.
-out_dir = REPO / OUT_SUBDIR
+out_dir = OUT_DIR
 out_dir.mkdir(parents=True, exist_ok=True)
 prior = None
 for r in roots:
@@ -116,13 +120,24 @@ else:
 
 env = dict(os.environ, TRACKIO_PROJECT="chess-logic-gpt", TOKENIZERS_PARALLELISM="false")
 
+# Runtime override: keep the source config as the canonical defaults, but put
+# checkpoints in /kaggle/working and save aggressively for quota/time-cap exits.
+config_path = REPO / "configs/training/qwen3_8b_lora.yaml"
+config = yaml.safe_load(config_path.read_text(encoding="utf-8"))
+config["training"]["output_dir"] = str(out_dir)
+config["training"]["save_steps"] = 25
+config["training"]["save_total_limit"] = 8
+config["training"]["resume_from_checkpoint"] = True
+RUNTIME_CONFIG.write_text(yaml.safe_dump(config, sort_keys=False), encoding="utf-8")
+print(f"runtime config -> {RUNTIME_CONFIG}", flush=True)
+
 # 5. Smoke (0.5B, 20 steps) fail-fast, then the real Qwen3-8B QLoRA SFT (resumes if a
 #    checkpoint was staged in step 4).
 sh([sys.executable, "scripts/train_lora.py", "--config", "configs/training/smoke.yaml"], env=env)
-sh([sys.executable, "scripts/train_lora.py", "--config", "configs/training/qwen3_8b_lora.yaml"], env=env)
+sh([sys.executable, "scripts/train_lora.py", "--config", str(RUNTIME_CONFIG)], env=env)
 
 # 6. Persist outputs to /kaggle/working (always retrievable via `kaggle kernels output`).
-for out in ("data/outputs/smoke", OUT_SUBDIR):
+for out in ("data/outputs/smoke",):
     src = REPO / out
     if src.exists():
         shutil.copytree(src, WORK / Path(out).name, dirs_exist_ok=True)
